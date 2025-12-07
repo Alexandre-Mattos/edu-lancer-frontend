@@ -1,16 +1,39 @@
+"use client"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { StudentsList } from "@/components/students-list"
+import { CreateStudentForm } from "@/components/create-student-form"
 import { Plus, Search } from "lucide-react"
 
 export default function StudentsPage() {
+  const [view, setView] = useState<'list' | 'create'>('list')
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const handleSuccess = () => {
+    setRefreshKey(prev => prev + 1)
+    setView('list')
+  }
+
+  if (view === 'create') {
+    return (
+      <div className="flex flex-col gap-4">
+        <CreateStudentForm 
+          onCancel={() => setView('list')} 
+          onSuccess={handleSuccess} 
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Alunos</h1>
-        <Button>
+        <Button onClick={() => setView('create')}>
           <Plus className="mr-2 h-4 w-4" />
           Novo Aluno
         </Button>
@@ -30,35 +53,19 @@ export default function StudentsPage() {
           <TabsTrigger value="advanced">Advanced</TabsTrigger>
         </TabsList>
         <TabsContent value="all">
-          <StudentsList />
+          <StudentsList key={`all-${refreshKey}`} />
         </TabsContent>
         <TabsContent value="beginner">
-          <StudentsList level="Beginner" />
+          <StudentsList key={`beginner-${refreshKey}`} level="Beginner" />
         </TabsContent>
         <TabsContent value="pre-intermediate">
-          <StudentsList level="Pre-Intermediate" />
+          <StudentsList key={`pre-intermediate-${refreshKey}`} level="Pre-Intermediate" />
         </TabsContent>
         <TabsContent value="intermediate">
-          <Card>
-            <CardHeader>
-              <CardTitle>Intermediate</CardTitle>
-              <CardDescription>Alunos de nível intermediário</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">Nenhum aluno encontrado neste nível.</p>
-            </CardContent>
-          </Card>
+          <StudentsList key={`intermediate-${refreshKey}`} level="Intermediate" />
         </TabsContent>
         <TabsContent value="advanced">
-          <Card>
-            <CardHeader>
-              <CardTitle>Advanced</CardTitle>
-              <CardDescription>Alunos de nível avançado</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">Nenhum aluno encontrado neste nível.</p>
-            </CardContent>
-          </Card>
+          <StudentsList key={`advanced-${refreshKey}`} level="Advanced" />
         </TabsContent>
       </Tabs>
     </div>

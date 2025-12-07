@@ -36,8 +36,13 @@ export function StudentLevelChart() {
     const fetchStudents = async () => {
       setLoading(true)
       try {
-        const response = await api.students.list({ pageSize: 100 })
-        const students = response.data
+        // Try fetching without params first to test connection
+        const response = await api.students.list({ pageSize: 50, page: 1 })
+        
+        // Handle different response structures
+        const students = Array.isArray(response) 
+          ? response 
+          : (response.data && Array.isArray(response.data) ? response.data : []);
 
         setTotalStudents(students.length)
 

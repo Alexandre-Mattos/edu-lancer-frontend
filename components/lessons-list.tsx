@@ -31,10 +31,16 @@ export function LessonsList({ level }: LessonsListProps) {
       try {
         const response = await api.lessons.list({
           level: level,
-          pageSize: 100
+          pageSize: 20,
+          page: 1
         })
 
-        const formattedLessons = response.data.map((lesson: Lesson) => ({
+        // Handle different response structures
+        const lessonsList = Array.isArray(response) 
+          ? response 
+          : (response.data && Array.isArray(response.data) ? response.data : []);
+
+        const formattedLessons = lessonsList.map((lesson: Lesson) => ({
           id: lesson.id,
           title: lesson.title,
           description: lesson.description,

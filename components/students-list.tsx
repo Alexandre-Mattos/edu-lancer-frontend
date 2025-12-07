@@ -28,8 +28,12 @@ export function StudentsList({ level }: StudentsListProps) {
     const fetchStudents = async () => {
       setLoading(true)
       try {
-        const response = await api.students.list({ pageSize: 100 })
-        let fetchedStudents = response.data
+        const response = await api.students.list({ pageSize: 10, page: 1 })
+        
+        // Handle different response structures
+        let fetchedStudents = Array.isArray(response) 
+          ? response 
+          : (response.data && Array.isArray(response.data) ? response.data : []);
 
         if (level) {
           fetchedStudents = fetchedStudents.filter((s: Student) => s.level === level)
@@ -42,6 +46,9 @@ export function StudentsList({ level }: StudentsListProps) {
           email: s.person?.email || "N/A",
           phone: s.person?.phone || "N/A",
           nextClass: "TBD", // This would require another API call or backend field
+          progress: s.totalLessons !== undefined 
+            ? `${s.attendedLessons || 0}/${s.totalLessons}` 
+            : (s.progress || "0/0")
         }))
 
         setStudents(formattedStudents)
@@ -49,8 +56,8 @@ export function StudentsList({ level }: StudentsListProps) {
         console.error("Failed to fetch students:", error)
         // Fallback mock data
         const mockData = [
-          { id: "1", name: "Gustavo", level: "Beginner", email: "gustavo@example.com", phone: "+55 11 98765-4321", nextClass: "14/05/2025" },
-          { id: "2", name: "Eduardo", level: "Pre-Intermediate", email: "eduardo@example.com", phone: "+55 11 91234-5678", nextClass: "14/05/2025" },
+          { id: "1", name: "Gustavo", level: "Beginner", email: "gustavo@example.com", phone: "+55 11 98765-4321", nextClass: "14/05/2025", progress: "5/10" },
+          { id: "2", name: "Eduardo", level: "Pre-Intermediate", email: "eduardo@example.com", phone: "+55 11 91234-5678", nextClass: "14/05/2025", progress: "2/20" },
         ]
         setStudents(level ? mockData.filter(s => s.level === level) : mockData)
       } finally {
@@ -99,6 +106,9 @@ export function StudentsList({ level }: StudentsListProps) {
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <CalendarClock className="h-4 w-4" />
                     <span>Próxima: {student.nextClass}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <span className="font-medium">Progresso: {student.progress}</span>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

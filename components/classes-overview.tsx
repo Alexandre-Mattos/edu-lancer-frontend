@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { api, Class } from "@/lib/api"
+import { api, Class, GoogleCalendarEvent } from "@/lib/api"
 import { startOfWeek, endOfWeek, format, addDays, isSameDay, parseISO } from "date-fns"
 import { ptBR } from "date-fns/locale"
 
@@ -35,19 +35,32 @@ export function ClassesOverview() {
       try {
         const response = await api.classes.list({
           dateFrom: weekStart.toISOString(),
-          dateTo: weekEnd.toISOString(),
-          pageSize: 100 // Fetch enough for the week
+          dateTo: weekEnd.toISOString()
         })
 
-        const formattedClasses = response.data.map((cls: Class) => ({
+        const classesList = response.classes || [];
+        const googleEvents = response.googleCalendarEvents || [];
+
+        const formattedClasses = classesList.map((cls: Class) => ({
           id: cls.id,
           date: parseISO(cls.date),
           time: cls.time,
           student: cls.student?.person?.name || "Aluno",
           level: cls.student?.level || "N/A",
+          isGoogleEvent: false
         }))
 
-        setClasses(formattedClasses)
+        const formattedGoogleEvents = googleEvents.map((evt: GoogleCalendarEvent) => ({
+          id: evt.googleEventId,
+          date: parseISO(evt.startDateTime),
+          time: format(parseISO(evt.startDateTime), "HH:mm"),
+          student: "Google Calendar",
+          level: "Externo",
+          isGoogleEvent: true,
+          summary: evt.summary
+        }))
+
+        setClasses([...formattedClasses, ...formattedGoogleEvents])
       } catch (error) {
         console.error("Failed to fetch classes:", error)
         // Fallback mock data
@@ -106,11 +119,16 @@ export function ClassesOverview() {
                   .filter((c) => isSameDay(c.date, day.fullDate))
                   .sort((a, b) => a.time.localeCompare(b.time))
                   .map((classItem) => (
-                    <div key={classItem.id} className="p-2 rounded-md bg-card border border-border/50 shadow-sm hover:shadow-md transition-all cursor-pointer group">
+                    <div key={classItem.id} className={cn(
+                      "p-2 rounded-md border border-border/50 shadow-sm hover:shadow-md transition-all cursor-pointer group",
+                      classItem.isGoogleEvent ? "bg-blue-50 dark:bg-blue-950/20" : "bg-card"
+                    )}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[10px] font-bold text-muted-foreground group-hover:text-primary transition-colors">{classItem.time}</span>
                       </div>
-                      <div className="font-semibold text-xs truncate">{classItem.student}</div>
+                      <div className="font-semibold text-xs truncate">
+                        {classItem.isGoogleEvent ? classItem.summary : classItem.student}
+                      </div>
                     </div>
                   ))}
               </div>

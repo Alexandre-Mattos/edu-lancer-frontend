@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ClassNotesModal } from "@/components/class-notes-modal"
-import { api, Class } from "@/lib/api"
+import { api, Class, GoogleCalendarEvent } from "@/lib/api"
 import { format, parseISO, addDays, startOfDay, isSameDay } from "date-fns"
 import { ptBR } from "date-fns/locale"
 
@@ -35,16 +35,16 @@ export function ListSchedule() {
         
         const response = await api.classes.list({
           dateFrom: today.toISOString(),
-          dateTo: nextWeek.toISOString(),
-          pageSize: 100
+          dateTo: nextWeek.toISOString()
         })
 
-        const classes = response.data
+        const classesList = response.classes || [];
+        const googleEvents = response.googleCalendarEvents || [];
 
         // Group classes by date
         const grouped: Record<string, any[]> = {}
         
-        classes.forEach((cls: Class) => {
+        classesList.forEach((cls: Class) => {
           const dateKey = format(parseISO(cls.date), "dd/MM/yyyy")
           if (!grouped[dateKey]) {
             grouped[dateKey] = []
@@ -55,7 +55,24 @@ export function ListSchedule() {
             student: cls.student?.person?.name || "Aluno",
             level: cls.student?.level || "N/A",
             lesson: cls.lesson?.title || "TBD",
-            fullDate: cls.date
+            fullDate: cls.date,
+            isGoogleEvent: false
+          })
+        })
+
+        googleEvents.forEach((evt: GoogleCalendarEvent) => {
+          const dateKey = format(parseISO(evt.startDateTime), "dd/MM/yyyy")
+          if (!grouped[dateKey]) {
+            grouped[dateKey] = []
+          }
+          grouped[dateKey].push({
+            id: evt.googleEventId,
+            time: format(parseISO(evt.startDateTime), "HH:mm"),
+            student: "Google Calendar",
+            level: "Externo",
+            lesson: evt.summary,
+            fullDate: evt.startDateTime,
+            isGoogleEvent: true
           })
         })
 
@@ -76,23 +93,7 @@ export function ListSchedule() {
 
       } catch (error) {
         console.error("Failed to fetch schedule:", error)
-        // Fallback mock data
-        setGroupedClasses([
-          {
-            date: format(new Date(), "dd/MM/yyyy"),
-            classes: [
-              { id: "1", time: "07:00", student: "Gustavo", level: "Beginner", lesson: "A1 Business - Class: 18" },
-              { id: "2", time: "09:00", student: "Fernanda", level: "Beginner", lesson: "Class 15: A Day in the Life" },
-            ],
-          },
-          {
-            date: format(addDays(new Date(), 1), "dd/MM/yyyy"),
-            classes: [
-              { id: "3", time: "12:00", student: "Eduardo", level: "Pre-Intermediate", lesson: "Comparatives" },
-            ],
-          }
-        ])
-        setExpandedDays([format(new Date(), "dd/MM/yyyy")])
+        setGroupedClasses([])
       } finally {
         setLoading(false)
       }
@@ -106,6 +107,7 @@ export function ListSchedule() {
   }
 
   const handleOpenNotes = (classItem: any, date: string) => {
+    if (classItem.isGoogleEvent) return; // Disable notes for Google events
     setSelectedClass({ ...classItem, date })
     setIsModalOpen(true)
   }
@@ -143,16 +145,16 @@ export function ListSchedule() {
                     {day.classes.map((classItem: any) => (
                       <div
                         key={classItem.id}
-                        className="grid grid-cols-12 items-center text-sm border-b pb-3 hover:bg-muted/50 rounded-md p-2 cursor-pointer transition-colors"
+                        className={`grid grid-cols-12 items-center text-sm border-b pb-3 hover:bg-muted/50 rounded-md p-2 cursor-pointer transition-colors ${classItem.isGoogleEvent ? 'bg-blue-50/50 dark:bg-blue-950/10' : ''}`}
                         onClick={() => handleOpenNotes(classItem, day.date)}
                       >
                         <div className="col-span-1" onClick={(e) => e.stopPropagation()}>
-                          <Checkbox id={`class-${classItem.id}`} />
+                          {!classItem.isGoogleEvent && <Checkbox id={`class-${classItem.id}`} />}
                         </div>
                         <div className="col-span-1 font-medium">{classItem.time}</div>
                         <div className="col-span-2 font-medium">{classItem.student}</div>
                         <div className="col-span-2">
-                          <Badge variant={classItem.level === "Beginner" ? "default" : "secondary"}>
+                          <Badge variant={classItem.level === "Beginner" ? "default" : classItem.level === "Externo" ? "outline" : "secondary"}>
                             {classItem.level}
                           </Badge>
                         </div>
@@ -160,27 +162,29 @@ export function ListSchedule() {
                           {classItem.lesson}
                         </div>
                         <div className="col-span-1 text-right" onClick={(e) => e.stopPropagation()}>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Ações</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleOpenNotes(classItem, day.date)}>
-                                <FileEdit className="h-4 w-4 mr-2" />
-                                Anotações
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
-                              <DropdownMenuItem>Editar aula</DropdownMenuItem>
-                              <DropdownMenuItem>Reagendar</DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive">Cancelar aula</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          {!classItem.isGoogleEvent && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                  <span className="sr-only">Ações</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleOpenNotes(classItem, day.date)}>
+                                  <FileEdit className="h-4 w-4 mr-2" />
+                                  Anotações
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
+                                <DropdownMenuItem>Editar aula</DropdownMenuItem>
+                                <DropdownMenuItem>Reagendar</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive">Cancelar aula</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </div>
                       </div>
                     ))}

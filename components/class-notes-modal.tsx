@@ -32,9 +32,18 @@ export function ClassNotesModal({ isOpen, onClose, classData }: ClassNotesModalP
         setLoading(true)
         try {
           // Try to find a note for this class
-          const response = await api.notes.list({ classId: classData.id })
-          if (response.data && response.data.length > 0) {
-            const note = response.data[0]
+          const response = await api.notes.list({ 
+            classId: classData.id,
+            pageSize: 10,
+            page: 1
+          })
+          
+          const notesList = Array.isArray(response) 
+            ? response 
+            : (response.data && Array.isArray(response.data) ? response.data : []);
+
+          if (notesList.length > 0) {
+            const note = notesList[0]
             setNoteContent(note.content)
             setNoteId(note.id)
           } else {

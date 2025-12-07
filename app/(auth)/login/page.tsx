@@ -23,22 +23,41 @@ export default function LoginPage() {
     try {
       const response = await api.auth.login({ email, password })
       
-      // Save token
-      localStorage.setItem("token", response.bearerToken)
+      // Handle different response structures
+      // 1. Standard: { bearerToken: "..." }
+      // 2. Nested data: { data: { bearerToken: "..." } }
+      // 3. New format: { token: "...", user: { ... } }
+      const token = (response as any).token || response.bearerToken || (response as any).data?.bearerToken
+      const refreshToken = (response as any).refreshToken || response.refreshToken || (response as any).data?.refreshToken
       
-      toast.success("Login realizado com sucesso!")
-      router.push("/")
-    } catch (error) {
+      if (token) {
+        localStorage.setItem("token", token)
+        if (refreshToken) {
+          localStorage.setItem("refreshToken", refreshToken)
+        }
+        toast.success("Login realizado com sucesso!")
+        router.push("/")
+      } else {
+        console.error("Resposta de login sem token:", response)
+        toast.error("Erro no login: Token não encontrado na resposta.")
+      }
+    } catch (error: any) {
       console.error("Login error:", error)
-      toast.error("Falha no login. Verifique suas credenciais.")
+      if (error instanceof TypeError && error.message === "Failed to fetch") {
+        toast.error("Não foi possível conectar ao servidor. Verifique se o backend está rodando.")
+      } else if (error.message === "Unauthorized") {
+        toast.error("Email ou senha incorretos.")
+      } else {
+        toast.error("Falha no login. Tente novamente mais tarde.")
+      }
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-stone-50 dark:bg-stone-950 p-4">
-      <Card className="w-full max-w-md border-stone-200 dark:border-stone-800 shadow-xl">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md border-border shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
             <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center">

@@ -23,8 +23,14 @@ export function StudentNotes() {
     const fetchStudents = async () => {
       setLoadingStudents(true)
       try {
-        const response = await api.students.list({ pageSize: 100 })
-        const formattedStudents = response.data.map((s: Student) => ({
+        const response = await api.students.list({ pageSize: 50, page: 1 })
+        
+        // Handle different response structures
+        const studentsList = Array.isArray(response) 
+          ? response 
+          : (response.data && Array.isArray(response.data) ? response.data : []);
+
+        const formattedStudents = studentsList.map((s: Student) => ({
           id: s.id,
           name: s.person?.name || "Unknown",
           level: s.level || "N/A",
@@ -51,8 +57,17 @@ export function StudentNotes() {
     const fetchNotes = async () => {
       setLoadingNotes(true)
       try {
-        const response = await api.notes.list({ studentId: selectedStudentId })
-        const formattedNotes = response.data.map((note: Note) => ({
+        const response = await api.notes.list({ 
+          studentId: selectedStudentId,
+          pageSize: 50,
+          page: 1
+        })
+        
+        const notesList = Array.isArray(response) 
+          ? response 
+          : (response.data && Array.isArray(response.data) ? response.data : []);
+
+        const formattedNotes = notesList.map((note: Note) => ({
           id: note.id,
           date: format(new Date(note.createdAt), "dd/MM/yyyy", { locale: ptBR }),
           lesson: "Aula", // Note might not have lesson title directly populated, depends on backend expansion
@@ -61,19 +76,7 @@ export function StudentNotes() {
         setNotes(formattedNotes)
       } catch (error) {
         console.error("Failed to fetch notes:", error)
-        // Fallback mock data
-        if (selectedStudentId === "1") {
-             setNotes([
-              {
-                id: "1",
-                date: "07/05/2025",
-                lesson: "Class 13 - A day in the life of a CEO",
-                content: "Gustavo teve dificuldade com o vocabulário de negócios.",
-              }
-            ])
-        } else {
-            setNotes([])
-        }
+        setNotes([])
       } finally {
         setLoadingNotes(false)
       }

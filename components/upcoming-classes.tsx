@@ -13,8 +13,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ClassNotesModal } from "@/components/class-notes-modal"
-import { api, Class } from "@/lib/api"
-import { format, isToday, isTomorrow, parseISO } from "date-fns"
+import { api, Class, GoogleCalendarEvent } from "@/lib/api"
+import { format, isToday, isTomorrow, parseISO, compareAsc } from "date-fns"
 import { ptBR } from "date-fns/locale"
 
 export function UpcomingClasses() {
@@ -27,13 +27,14 @@ export function UpcomingClasses() {
     const fetchClasses = async () => {
       try {
         const response = await api.classes.list({ 
-          status: "SCHEDULED",
-          pageSize: 5,
-          // Sort by date ascending would be ideal, assuming backend supports it or returns sorted
+          status: ["SCHEDULED"]
         })
         
+        const classesList = response.classes || [];
+        const googleEvents = response.googleCalendarEvents || [];
+
         // Transform API data to component format
-        const formattedClasses = response.data.map((cls: Class) => {
+        const formattedClasses = classesList.map((cls: Class) => {
           const date = parseISO(cls.date)
           let dateDisplay = format(date, "dd/MM", { locale: ptBR })
           
@@ -48,11 +49,54 @@ export function UpcomingClasses() {
             time: cls.time,
             lesson: cls.lesson?.title || "Sem lição definida",
             status: cls.status.toLowerCase(),
-            originalDate: cls.date
+            originalDate: cls.date,
+            isGoogleEvent: false
           }
         })
 
-        setClasses(formattedClasses)
+        const formattedGoogleEvents = googleEvents.map((evt: GoogleCalendarEvent) => {
+          const date = parseISO(evt.startDateTime)
+          let dateDisplay = format(date, "dd/MM", { locale: ptBR })
+          
+          if (isToday(date)) dateDisplay = "Hoje"
+          else if (isTomorrow(date)) dateDisplay = "Amanhã"
+
+          return {
+            id: evt.googleEventId,
+            student: "Google Calendar",
+            level: "Externo",
+            date: dateDisplay,
+            time: format(date, "HH:mm"),
+            lesson: evt.summary,
+            status: "scheduled",
+            originalDate: evt.startDateTime,
+            isGoogleEvent: true
+          }
+        })
+
+        const allEvents = [...formattedClasses, ...formattedGoogleEvents].sort((a, b) => {
+            // Combine date and time for sorting
+            const dateA = new Date(a.originalDate);
+            // If originalDate is just YYYY-MM-DD, we might need to add time. 
+            // But for classes, date is YYYY-MM-DD and time is HH:mm.
+            // For google events, startDateTime is ISO with time.
+            
+            let dateTimeA = new Date(a.originalDate);
+            if (a.time && !a.isGoogleEvent) {
+                const [hours, minutes] = a.time.split(':');
+                dateTimeA.setHours(parseInt(hours), parseInt(minutes));
+            }
+
+            let dateTimeB = new Date(b.originalDate);
+            if (b.time && !b.isGoogleEvent) {
+                const [hours, minutes] = b.time.split(':');
+                dateTimeB.setHours(parseInt(hours), parseInt(minutes));
+            }
+
+            return compareAsc(dateTimeA, dateTimeB);
+        });
+
+        setClasses(allEvents.slice(0, 10)) // Show only next 10
       } catch (error) {
         console.error("Failed to fetch classes:", error)
         // Fallback to mock data if API fails (for demo purposes)
