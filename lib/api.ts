@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { toast } from "sonner";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3001/api/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // --- Types ---
 
@@ -148,10 +148,10 @@ export interface Note {
 function buildQueryString(params: any) {
   const searchParams = new URLSearchParams();
   if (params) {
-    Object.keys(params).forEach(key => {
+    Object.keys(params).forEach((key) => {
       const value = params[key];
       if (Array.isArray(value)) {
-        value.forEach(v => searchParams.append(key, v));
+        value.forEach((v) => searchParams.append(key, v));
       } else if (value !== undefined && value !== null) {
         searchParams.append(key, value.toString());
       }
@@ -174,10 +174,14 @@ const handleSessionExpired = () => {
   }, 2000);
 };
 
-async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  let token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+async function fetchAPI<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  let token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
   if (token === "undefined") token = null;
-  
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -202,16 +206,18 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
     });
   } catch (error) {
     console.error("Network error:", error);
-    toast.error("Erro de conexão. Verifique se o servidor backend está rodando.");
+    toast.error(
+      "Erro de conexão. Verifique se o servidor backend está rodando."
+    );
     throw error;
   }
 
   if (response.status === 401) {
     if (typeof window !== "undefined" && !endpoint.includes("/auth/login")) {
       console.warn("Unauthorized access - attempting refresh");
-      
+
       const refreshToken = localStorage.getItem("refreshToken");
-      
+
       // Avoid infinite loops if the refresh endpoint itself returns 401
       if (refreshToken && !endpoint.includes("/auth/refresh")) {
         try {
@@ -227,7 +233,8 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
             const data = await refreshResponse.json();
             // Handle both direct object and nested data object patterns
             const newBearerToken = data.bearerToken || data.data?.bearerToken;
-            const newRefreshToken = data.refreshToken || data.data?.refreshToken;
+            const newRefreshToken =
+              data.refreshToken || data.data?.refreshToken;
 
             if (newBearerToken) {
               console.log("Token refreshed successfully");
@@ -235,7 +242,7 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
               if (newRefreshToken) {
                 localStorage.setItem("refreshToken", newRefreshToken);
               }
-              
+
               // Retry the original request with the new token
               return fetchAPI<T>(endpoint, options);
             }
@@ -258,13 +265,15 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     console.error("API Error Response:", errorData);
-    
+
     // Handle array of messages (common in NestJS/class-validator)
-    const message = Array.isArray(errorData.message) 
-      ? errorData.message.join(", ") 
+    const message = Array.isArray(errorData.message)
+      ? errorData.message.join(", ")
       : errorData.message;
 
-    throw new Error(message || `Error ${response.status}: ${response.statusText}`);
+    throw new Error(
+      message || `Error ${response.status}: ${response.statusText}`
+    );
   }
 
   const responseData = await response.json();
@@ -274,7 +283,7 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
 
 export const api = {
   auth: {
-    login: (data: { email: string; password: string }) => 
+    login: (data: { email: string; password: string }) =>
       fetchAPI<AuthResponse>("/auth/login", {
         method: "POST",
         body: JSON.stringify(data),
@@ -294,37 +303,61 @@ export const api = {
   },
 
   users: {
-    create: (data: any) => fetchAPI("/users", { method: "POST", body: JSON.stringify(data) }),
+    create: (data: any) =>
+      fetchAPI("/users", { method: "POST", body: JSON.stringify(data) }),
     list: (params?: any) => {
-      return fetchAPI<PaginatedResponse<User>>(`/users?${buildQueryString(params)}`);
+      return fetchAPI<PaginatedResponse<User>>(
+        `/users?${buildQueryString(params)}`
+      );
     },
-    update: (id: string, data: any) => fetchAPI(`/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      fetchAPI(`/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   },
 
   students: {
-    create: (data: any) => fetchAPI("/students", { method: "POST", body: JSON.stringify(data) }),
+    create: (data: any) =>
+      fetchAPI("/students", { method: "POST", body: JSON.stringify(data) }),
     list: (params?: any) => {
-      return fetchAPI<PaginatedResponse<Student>>(`/students?${buildQueryString(params)}`);
+      return fetchAPI<PaginatedResponse<Student>>(
+        `/students?${buildQueryString(params)}`
+      );
     },
     get: (id: string) => fetchAPI<Student>(`/students/${id}`),
-    update: (id: string, data: any) => fetchAPI(`/students/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      fetchAPI(`/students/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
     delete: (id: string) => fetchAPI(`/students/${id}`, { method: "DELETE" }),
-    addLessons: (id: string, quantity: number) => fetchAPI(`/students/${id}/add-lessons`, { method: "POST", body: JSON.stringify({ quantity }) }),
-    createWithPerson: (data: any) => fetchAPI("/students/with-person", { method: "POST", body: JSON.stringify(data) }),
+    addLessons: (id: string, quantity: number) =>
+      fetchAPI(`/students/${id}/add-lessons`, {
+        method: "POST",
+        body: JSON.stringify({ quantity }),
+      }),
+    createWithPerson: (data: any) =>
+      fetchAPI("/students/with-person", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
   },
 
   lessons: {
-    create: (data: any) => fetchAPI("/lessons", { method: "POST", body: JSON.stringify(data) }),
+    create: (data: any) =>
+      fetchAPI("/lessons", { method: "POST", body: JSON.stringify(data) }),
     list: (params?: any) => {
-      return fetchAPI<PaginatedResponse<Lesson>>(`/lessons?${buildQueryString(params)}`);
+      return fetchAPI<PaginatedResponse<Lesson>>(
+        `/lessons?${buildQueryString(params)}`
+      );
     },
     get: (id: string) => fetchAPI<Lesson>(`/lessons/${id}`),
-    update: (id: string, data: any) => fetchAPI(`/lessons/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      fetchAPI(`/lessons/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: string) => fetchAPI(`/lessons/${id}`, { method: "DELETE" }),
   },
 
   classes: {
-    create: (data: any) => fetchAPI("/classes", { method: "POST", body: JSON.stringify(data) }),
+    create: (data: any) =>
+      fetchAPI("/classes", { method: "POST", body: JSON.stringify(data) }),
     list: (params?: any) => {
       return fetchAPI<ClassesResponse>(`/classes?${buildQueryString(params)}`);
     },
@@ -333,23 +366,31 @@ export const api = {
   },
 
   notes: {
-    create: (data: any) => fetchAPI("/notes", { method: "POST", body: JSON.stringify(data) }),
+    create: (data: any) =>
+      fetchAPI("/notes", { method: "POST", body: JSON.stringify(data) }),
     list: (params?: any) => {
-      return fetchAPI<PaginatedResponse<Note>>(`/notes?${buildQueryString(params)}`);
+      return fetchAPI<PaginatedResponse<Note>>(
+        `/notes?${buildQueryString(params)}`
+      );
     },
-    update: (id: string, data: any) => fetchAPI(`/notes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      fetchAPI(`/notes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   },
 
   persons: {
-    create: (data: any) => fetchAPI("/persons", { method: "POST", body: JSON.stringify(data) }),
+    create: (data: any) =>
+      fetchAPI("/persons", { method: "POST", body: JSON.stringify(data) }),
     get: (id: string) => fetchAPI<Person>(`/persons/${id}`),
-    update: (id: string, data: any) => fetchAPI(`/persons/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      fetchAPI(`/persons/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   },
-  
+
   // Properties & Bookings (Included based on backend.md, though maybe less relevant for teacher dashboard)
   properties: {
     list: (params?: any) => {
-        return fetchAPI<PaginatedResponse<any>>(`/properties?${buildQueryString(params)}`);
-    }
-  }
+      return fetchAPI<PaginatedResponse<any>>(
+        `/properties?${buildQueryString(params)}`
+      );
+    },
+  },
 };
